@@ -265,7 +265,7 @@ def train_loop(text_fname, num_training, num_epochs, log_mode="a"):
         print("{0:s}".format("-"*50))
 
         # Compute Bleu every 2 epochs
-        if epoch % 2 == 0:
+        if epoch % 1 == 0:
             print("computing bleu")
             bleu_score = compute_dev_bleu()
             print("finished computing bleu ... ")
@@ -343,7 +343,21 @@ def plot_attention(alpha_arr, fr, en, plot_name=None):
 #---------------------------------------------------------------------
 # Helper function for prediction
 #---------------------------------------------------------------------
-def predict_sentence(line_fr, line_en=None, display=True, 
+#baseline_p = []
+#baseline_r = []
+#baseline_E = []
+#baseline_J = []
+#baseline_R = []
+
+attention_p = []
+attention_r = []
+attention_E = []
+attention_J = []
+attention_R = []
+
+
+
+def predict_sentence(file, line_fr, line_en=None, display=True, 
                      plot_name=None, p_filt=0, r_filt=0, sample=False):
     fr_sent = line_fr.strip().split()
     fr_ids = [w2i["fr"].get(w, UNK_ID) for w in fr_sent]
@@ -364,7 +378,8 @@ def predict_sentence(line_fr, line_en=None, display=True,
     matches = count_match(en_ids, pred_ids)
     prec = matches/len(pred_ids)
     rec = matches/len(en_ids)
-
+    
+    
     if display and (prec >= p_filt and rec >= r_filt):
         filter_match = True
         # convert raw binary into string
@@ -374,11 +389,25 @@ def predict_sentence(line_fr, line_en=None, display=True,
         print("{0:s} | {1:80s}".format("Src", line_fr.strip().decode()))
         print("{0:s} | {1:80s}".format("Ref", line_en.strip().decode()))
         print("{0:s} | {1:80s}".format("Hyp", " ".join(pred_words)))
+        attention_E.append(line_en.strip().decode())
+        attention_J.append(line_fr.strip().decode())
+        attention_R.append(" ".join(pred_words))
 
         print("{0:s}".format("-"*50))
 
         print("{0:s} | {1:0.4f}".format("precision", prec))
         print("{0:s} | {1:0.4f}".format("recall", rec))
+        
+#        file.write('Src: {0}\n'.format(line_fr.strip().decode()))
+#        file.write('Ref: {0}\n'.format(line_en.strip().decode()))
+#        file.write('Hyp: {0}\n'.format(" ".join(pred_words)))
+#        file.write('precision: {0:0.4f}\n'.format(prec))
+#        file.write('recall: {0:0.4f}\n'.format(rec))
+#        file.write('-----------------------------------------\n')
+        
+        attention_p.append(prec)
+        attention_r.append(rec)
+
 
         if plot_name and use_attn:
             plot_attention(alpha_arr, fr_words, pred_words, plot_name)
@@ -407,7 +436,7 @@ def predict(s=NUM_TRAINING_SENTENCES, num=NUM_DEV_SENTENCES,
 
     filter_count = 0
 
-    with open(text_fname["fr"], "rb") as fr_file, open(text_fname["en"], "rb") as en_file:
+    with open(text_fname["fr"], "rb") as fr_file, open(text_fname["en"], "rb") as en_file, open('translation.txt','rb') as file:
         for i, (line_fr, line_en) in enumerate(zip(fr_file, en_file), start=0):
             if i >= s and i < (s+num):
                 if plot:
@@ -416,7 +445,7 @@ def predict(s=NUM_TRAINING_SENTENCES, num=NUM_DEV_SENTENCES,
                     plot_name=None
 
                 # make prediction
-                cp, tp, t, f = predict_sentence(line_fr,
+                cp, tp, t, f = predict_sentence(file,line_fr,
                                              line_en,
                                              display=display,
                                              plot_name=plot_name, 
@@ -481,4 +510,35 @@ def test_lam_tran():
 
         predict_sentence(line_fr=line_fr, line_en=line_en)
 
-
+#c = []
+#for x in range(10000):
+#    if (baseline_p[x] - attention_p[x]) < -0.2:
+#        if (baseline_r[x] - attention_r[x]) < -0.2:
+#            c.append(x)
+        
+#for y in c:
+#    print (baseline_J[y])
+#    print (baseline_E[y])
+#    print (baseline_R[y])
+#    print (attention_R[y])
+#    print ('################')
+        
+#x = []
+#for y in c:
+#    if attention_E[y].find('?') == -1:
+#        pass
+#    else:
+#        x.append(y)
+        
+#with open('translation.txt','w') as file:
+#    for y in range(500):
+#        file.write('Src: {0}\n'.format("".join(baseline_J[y])))
+#        file.write('Ref: {0}\n'.format("".join(baseline_E[y])))
+#        file.write('Baseline: {0}\n'.format("".join(baseline_R[y])))
+#        file.write('Attention: {0}\n'.format("".join(attention_R[y])))
+#        file.write('                                              \n')
+#        file.write('Baseline_precision: {0:0.4f}\n'.format(baseline_p[y]))
+#        file.write('Attention_precision: {0:0.4f}\n'.format(attention_p[y]))
+#        file.write('Baseline_recall: {0:0.4f}\n'.format(baseline_r[y]))
+#        file.write('Attention_recall: {0:0.4f}\n'.format(attention_r[y]))
+#        file.write('-----------------------------------------\n')

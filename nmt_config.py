@@ -97,7 +97,7 @@ num_layers_dec = 1
 hidden_units = 100
 # default model - no attention
 # when implementing attention use either - SOFT_ATTN or HARD_ATTN
-use_attn = NO_ATTN
+use_attn = 1
 '''
 KEEP this flag true to avoid losing earlier trained models
 The code checks if a trained model file with the selected parameters

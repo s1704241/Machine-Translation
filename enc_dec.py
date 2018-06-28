@@ -22,7 +22,6 @@ from chainer.functions.array import concat
 # Import configuration file
 from nmt_config import *
 
-
 class EncoderDecoder(Chain):
 
     '''
@@ -75,6 +74,7 @@ class EncoderDecoder(Chain):
         - L.Linear(2*n_units, vsize_dec)
 
         Why are we using multipliers over the base number of units (n_units)?
+        
         '''
 
         self.add_link("embed_dec", L.EmbedID(vsize_dec, 2*n_units))
@@ -86,7 +86,10 @@ class EncoderDecoder(Chain):
 
         if attn > 0:
             # __QUESTION Add attention
-            pass
+            self.add_link("attention", L.Linear(4*n_units, 2*n_units))
+            
+            
+        
 
         # Save the attention preference
         # __QUESTION you should use this flag to check if attention
@@ -102,6 +105,8 @@ class EncoderDecoder(Chain):
         # Store GPU id
         self.gpuid = gpuid
         self.n_units = n_units
+    
+
 
     def reset_state(self):
         # reset the state of LSTM layers
@@ -131,6 +136,8 @@ class EncoderDecoder(Chain):
     def feed_lstm(self, word, embed_layer, lstm_layer_list, train):
         # get embedding for word
         embed_id = embed_layer(word)
+        #############first dropout layer
+#        embed_id = F.dropout(embed_id, 0.2)
         # feed into first LSTM layer
         hs = self[lstm_layer_list[0]](embed_id)
         # feed into remaining LSTM layers
@@ -167,7 +174,12 @@ class EncoderDecoder(Chain):
             ___QUESTION-1-DESCRIBE-D-START___
 
             - Explain why we are performing two encode operations
+            
+            Because bidirectional LSTM has two kinds of input: one passing over the input sentence from left-to-right, 
+            the other from right-to-left, and these two inputs will be trained simultaneously. Therefore, we need to 
+            perform two encode operations.
             '''
+            
             self.encode(f_word, self.lstm_enc, train)
             self.encode(r_word, self.lstm_rev_enc, train)
 
@@ -242,9 +254,20 @@ class EncoderDecoder(Chain):
                 predicted_out = self.out(self[self.lstm_dec[-1]].h)
             else:
                 # __QUESTION Add attention
-                pass
+                a_t = F.matmul(enc_states, self[self.lstm_dec[-1]].h.transpose())
+                a_t = a_t.reshape((1, -1))
+                
+                alpha = F.softmax(a_t)
+                c_t = F.matmul(alpha, enc_states)
+                h_t = F.tanh(self.attention(F.concat((self[self.lstm_dec[-1]].h, c_t),axis = 1)))                
+                predicted_out = self.out(h_t)
+                    
+#                pass
 
+#            predicted_out = F.dropout(predicted_out, 0.2)
             # compute loss
+            
+            
             prob = F.softmax(predicted_out)
 
             pred_word = self.select_word(prob, train=train, sample=False)
@@ -252,6 +275,10 @@ class EncoderDecoder(Chain):
             ___QUESTION-1-DESCRIBE-E-START___
             Explain what loss is computed with an example
             What does this value mean?
+            It is a scalar array of the cross entropy loss between prediction of the training model and the given target, 
+            which can be used as an error measurement.
+            
+            This value indicates the distance between what the network predict this distribution to be and what the value that should be. 
             '''
             self.loss += F.softmax_cross_entropy(predicted_out, next_word_var)
             '''___QUESTION-1-DESCRIBE-E-END___'''
@@ -282,7 +309,20 @@ class EncoderDecoder(Chain):
                 prob = F.softmax(self.out(self[self.lstm_dec[-1]].h))
             else:
                 # __QUESTION Add attention
-                pass
+                a_t = F.matmul(enc_states, self[self.lstm_dec[-1]].h.transpose())
+                a_t = a_t.reshape((1, -1))
+                
+                alpha =  F.softmax(a_t)
+                c_t = F.matmul(alpha, enc_states)
+                h_t = F.tanh(self.attention(F.concat((self[self.lstm_dec[-1]].h, c_t),axis = 1)))
+    
+                H_t = self.out(h_t)
+#            predicted_out = F.dropout(predicted_out, 0.2)
+                prob = F.softmax(H_t)
+                alpha_arr = np.vstack((alpha_arr, alpha.array))
+                
+                
+#                pass
 
             pred_word = self.select_word(prob, train=False, sample=sample)
             # add integer id of predicted word to output list
@@ -306,4 +346,16 @@ class EncoderDecoder(Chain):
         predicted_sent, alpha_arr = self.decoder_predict(GO_ID, enc_states,
                                                          max_predict_len, sample=sample)
         return predicted_sent, alpha_arr
-
+#
+#import numpy as np
+#import chainer
+#from chainer import cuda, Function, gradient_check, report, training, utils, Variable
+#from chainer import datasets, iterators, optimizers, serializers
+#from chainer import Link, Chain, ChainList
+#import chainer.functions as F
+#import chainer.links as L
+#from chainer.training import extensions
+#from chainer.functions.array import concat
+#a = np.array([[1,2,3]])
+#b = np.array([[4,5,6]])
+#c = F.concat((a[-1],b[-1]))
